@@ -1,3 +1,4 @@
+import math
 from datetime import datetime
 from typing import List, Dict, Tuple
 
@@ -124,8 +125,8 @@ def plot_spendings(spendings: List[float], dates: List[datetime], plot=plt):
     plt.show()
 
 
-def plot_groupings(groupings: List[Dict], dates: List[datetime], m: Model, plot=plt, select=None):
-    plot.title("Balance per group")
+def plot_groupings(txn_list: List[Transaction], m: Model, plot=plt, select=None, split=False):
+    s, _, groupings, _, dates = generate_all_months(txn_list, m)
     data = {group: [] for group in m.get_all_categories()}
     for month_groupings in groupings:
         for group in data:
@@ -134,12 +135,36 @@ def plot_groupings(groupings: List[Dict], dates: List[datetime], m: Model, plot=
             else:
                 data[group].append(0)
 
-    for group in data:
-        if select == group or select is None:
-            plot.plot(dates, data[group], label=group)
-            plot.scatter(dates, data[group])
-    plot.legend()
+    if split:
+        keys = list(data.keys())
+        sqrt_len = math.ceil(math.sqrt(len(keys)))
+        fig, ax = plot.subplots(nrows=(len(keys) // sqrt_len) + 1, ncols=sqrt_len, sharex=True)
+        for y, row in enumerate(ax):
+            for x, col in enumerate(row):
+                cur_pos = y * sqrt_len + x
+                if cur_pos < len(keys):
+                    cur_label = keys[cur_pos]
+                    col.plot(dates, data[cur_label])
+                    col.scatter(dates, data[cur_label])
+                    col.set_title(cur_label)
+
+                if cur_pos == len(keys):
+                    col.plot(dates, s)
+                    col.set_title("Total Balance")
+                    col.scatter(dates, s)
+                col.tick_params(axis='x', labelrotation=70)
+        fig.subplots_adjust(hspace=.5, wspace=0.3)
+
+    else:
+        plot.title("Balance per group")
+        for group in data:
+            if select == group or select is None:
+                plot.plot(dates, data[group], label=group)
+                plot.scatter(dates, data[group])
+        plot.legend()
+
     plot.show()
+
 
 if __name__ == "__main__":
     CIBC = Bank("CIBC")
@@ -161,5 +186,5 @@ if __name__ == "__main__":
     categorize_transactions(total_list, model)
 
     s, t, g, i, d = generate_all_months(total_list, model)
-    plot_spendings(s, d)
-    plot_groupings(g, d, model, select="weed")
+    # plot_spendings(s, d)
+    plot_groupings(total_list, model, split=True)
